@@ -290,17 +290,17 @@ const CatalogPage = () => {
             return (
               <div
                 key={product.id}
-                className="product-card group transition-all bg-white rounded-md shadow p-4 flex flex-col"
+                className="product-card group transition-all bg-white rounded-md shadow p-6 flex flex-col"
               >
                 <div className="mb-4 overflow-hidden rounded-md">
                   <img
                     src={
                       selectedColor?.image_url ||
                       product.imagem_url ||
-                      "https://via.placeholder.com/300x300?text=Sem+Imagem"
+                      "https://via.placeholder.com/400x400?text=Sem+Imagem"
                     }
                     alt={product.nome}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <span className="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded mb-2">
@@ -325,7 +325,7 @@ const CatalogPage = () => {
                         }`}
                         style={{
                           backgroundColor: color.hex_code,
-                          borderColor: color.stock > 0 ? "#d1d5db" : "red", // Adiciona borda cinza clara
+                          borderColor: color.stock > 0 ? "#d1d5db" : "red",
                         }}
                         title={`${color.name} (${
                           color.stock > 0 ? "Em estoque" : "Esgotado"
