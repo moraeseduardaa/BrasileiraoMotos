@@ -4,11 +4,22 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  imagem_url: string;
   category: string;
   stock: number;
   compatibility: string[];
   featured?: boolean;
+}
+
+// Tipos para cores dos produtos
+export interface ProductColor {
+  id: string; // UUID
+  productId?: string; // UUID, pode ser nulo
+  name: string; // Nome da cor
+  hexCode: string; // Código hexadecimal da cor
+  stock: number; // Estoque disponível
+  createdAt?: string; // Data de criação, pode ser nulo
+  image_url?: string; // URL da imagem, pode ser nulo
 }
 
 // Tipos para pedidos

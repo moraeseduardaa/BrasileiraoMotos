@@ -24,6 +24,7 @@ import ProfilePage from "@/pages/client/ProfilePage";
 import OrderHistoryPage from "@/pages/client/OrderHistoryPage";
 import CheckoutPage from "@/pages/client/CheckoutPage";
 import OrderSuccessPage from "@/pages/client/OrderSuccessPage";
+import ResumoPedido from "@/pages/client/ResumoPedido";
 
 import DashboardPage from "@/pages/admin/DashboardPage";
 import InventoryPage from "@/pages/admin/InventoryPage";
@@ -62,6 +63,7 @@ const AppRoutes = () => {
         <Route path="carrinho" element={<CartPage />} />
         <Route path="checkout" element={<CheckoutPage />} />
         <Route path="pedido-finalizado" element={<OrderSuccessPage />} />
+        <Route path="resumo-pedido" element={<ResumoPedido />} />
         <Route path="perfil" element={<ProfilePage />} />
         <Route path="pedidos" element={<OrderHistoryPage />} />
       </Route>

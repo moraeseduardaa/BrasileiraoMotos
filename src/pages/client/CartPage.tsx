@@ -117,6 +117,7 @@ const CartPage = () => {
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
   const [produtosSugeridos, setProdutosSugeridos] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [coresProduto, setCoresProduto] = useState([]);
 
   useEffect(() => {
     const fetchProdutos = async () => {
@@ -124,16 +125,17 @@ const CartPage = () => {
       try {
         const { data, error } = await supabase
           .from("produtos")
-          .select("id, nome, preco, imagem_url, estoque")
+          .select(
+            "id, nome, descricao, preco, estoque, categoria_id, imagem_url, destaque"
+          )
           .gt("estoque", 0) // Apenas produtos com estoque
-          .eq("destaque", true) // Produtos em destaque, ou remova esta linha para pegar qualquer produto
-          .limit(6);
+          .limit(10); // Limite de produtos exibidos
 
         if (error) {
           console.error("Erro ao buscar produtos:", error);
           toast({
             title: "Erro ao carregar produtos",
-            description: "Não foi possível carregar os produtos sugeridos.",
+            description: "Não foi possível carregar os produtos.",
             variant: "destructive",
           });
         } else {
@@ -154,6 +156,37 @@ const CartPage = () => {
     fetchProdutos();
   }, [toast]);
 
+  useEffect(() => {
+    const fetchCoresProduto = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("product_colors")
+          .select("id, product_id, name, hex_code, stock, image_url")
+          .gt("stock", 0); // Apenas cores com estoque
+
+        if (error) {
+          console.error("Erro ao buscar cores dos produtos:", error);
+          toast({
+            title: "Erro ao carregar cores",
+            description: "Não foi possível carregar as cores dos produtos.",
+            variant: "destructive",
+          });
+        } else {
+          setCoresProduto(data || []);
+        }
+      } catch (error) {
+        console.error("Erro inesperado ao buscar cores dos produtos:", error);
+        toast({
+          title: "Erro ao carregar cores",
+          description: "Ocorreu um erro inesperado ao carregar as cores.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchCoresProduto();
+  }, [toast]);
+
   // Função para adicionar produto sugerido ao carrinho
   const adicionarAoCarrinho = (produto) => {
     try {
@@ -164,8 +197,10 @@ const CartPage = () => {
         price: parseFloat(produto.preco),
         quantity: 1,
         imageUrl: produto.imagem_url,
-        // Adicione outros campos necessários conforme sua estrutura do carrinho
-        // peso, altura, largura, comprimento, etc.
+        peso: parseFloat(produto.peso || 0),
+        altura: parseFloat(produto.altura || 0),
+        largura: parseFloat(produto.largura || 0),
+        comprimento: parseFloat(produto.comprimento || 0),
       };
 
       addItem(produtoFormatado);
@@ -323,12 +358,12 @@ const CartPage = () => {
                   <CardContent className="p-4">
                     <img
                       src={
-                        produto.imagem_url && produto.imagem_url.trim() !== ""
-                          ? produto.imagem_url
-                          : "https://via.placeholder.com/300x300?text=Sem+Imagem"
+                        produto.imageUrl?.trim()
+                          ? produto.imageUrl.trim()
+                          : "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A"
                       }
                       alt={produto.nome}
-                      className="h-32 w-full object-cover rounded mb-2"
+                      className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <h3 className="text-sm font-semibold mb-1 line-clamp-2">
                       {produto.nome}
@@ -339,9 +374,21 @@ const CartPage = () => {
                         currency: "BRL",
                       })}
                     </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {coresProduto
+                        .filter((cor) => cor.product_id === produto.id)
+                        .map((cor) => (
+                          <div
+                            key={cor.id}
+                            className="w-6 h-6 rounded-full border"
+                            style={{ backgroundColor: cor.hex_code }}
+                            title={cor.name}
+                          ></div>
+                        ))}
+                    </div>
                     <Button
                       size="sm"
-                      className="w-full bg-moto-red hover:bg-red-700"
+                      className="w-full bg-moto-red hover:bg-red-700 mt-4"
                       onClick={() => adicionarAoCarrinho(produto)}
                     >
                       Adicionar
@@ -379,7 +426,7 @@ const CartPage = () => {
                     src={
                       item.imageUrl && item.imageUrl.trim() !== ""
                         ? item.imageUrl
-                        : "https://via.placeholder.com/300x300?text=Sem+Imagem"
+                        : "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A"
                     }
                     alt={item.name}
                     className="w-full h-full object-cover"
@@ -598,13 +645,14 @@ const CartPage = () => {
                   <CardContent className="p-4">
                     <img
                       src={
-                        produto.imagem_url && produto.imagem_url.trim() !== ""
-                          ? produto.imagem_url
-                          : "https://via.placeholder.com/300x300?text=Sem+Imagem"
+                        produto.imageUrl?.trim()
+                          ? produto.imageUrl.trim()
+                          : "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A"
                       }
                       alt={produto.nome}
-                      className="h-32 w-full object-cover rounded mb-2"
+                      className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
                     />
+
                     <h3 className="text-sm font-semibold mb-1 line-clamp-2">
                       {produto.nome}
                     </h3>
@@ -614,9 +662,21 @@ const CartPage = () => {
                         currency: "BRL",
                       })}
                     </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {coresProduto
+                        .filter((cor) => cor.product_id === produto.id)
+                        .map((cor) => (
+                          <div
+                            key={cor.id}
+                            className="w-6 h-6 rounded-full border"
+                            style={{ backgroundColor: cor.hex_code }}
+                            title={cor.name}
+                          ></div>
+                        ))}
+                    </div>
                     <Button
                       size="sm"
-                      className="w-full bg-moto-red hover:bg-red-700"
+                      className="w-full bg-moto-red hover:bg-red-700 mt-4"
                       onClick={() => adicionarAoCarrinho(produto)}
                     >
                       Adicionar

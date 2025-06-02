@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -92,6 +93,69 @@ const CheckoutPage = () => {
   const finalTotalPrice = isPixPayment
     ? totalPrice * (1 - pixDiscountRate)
     : totalPrice;
+
+  useEffect(() => {
+    async function loadCheckoutData() {
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+      const currentUser = authData?.user;
+
+      if (!currentUser || authError) {
+        toast({
+          title: "Erro",
+          description: "Usuário não autenticado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from("usuarios")
+          .select("nome_completo, telefone, email")
+          .eq("id", currentUser.id)
+          .single();
+
+        const { data: addressData, error: addressError } = await supabase
+          .from("enderecos")
+          .select("rua, numero, complemento, bairro, cidade, estado, cep")
+          .eq("usuario_id", currentUser.id)
+          .eq("padrao", true)
+          .single();
+
+        if (userError) throw userError;
+        if (addressError && addressError.code !== "PGRST116")
+          throw addressError;
+
+        form.reset({
+          fullName: userData?.nome_completo || "",
+          email: userData?.email || "",
+          phone: userData?.telefone || "",
+          street: addressData?.rua || "",
+          number: addressData?.numero || "",
+          complement: addressData?.complemento || "",
+          neighborhood: addressData?.bairro || "",
+          city: addressData?.cidade || "",
+          state: addressData?.estado || "",
+          zipCode: addressData?.cep || "",
+          paymentMethod: "credit_card",
+          cardNumber: "",
+          cardName: "",
+          cardExpiry: "",
+          cardCvv: "",
+          notes: "",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Erro ao carregar dados",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+
+    loadCheckoutData();
+  }, []);
 
   const onSubmit = (data: CheckoutFormValues) => {
     if (items.length === 0) {

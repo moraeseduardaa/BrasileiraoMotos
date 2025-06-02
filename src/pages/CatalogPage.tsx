@@ -15,10 +15,13 @@ import { supabase } from "@/lib/supabaseClient";
 
 // Tipo ajustado conforme sua tabela produtos
 interface ProductColor {
-  id: string;
-  name: string;
-  hex_code: string;
-  stock: number;
+  id: string; // UUID
+  productId?: string; // UUID, pode ser nulo
+  name: string; // Nome da cor
+  hex_code: string; // Código hexadecimal da cor
+  stock: number; // Estoque disponível
+  createdAt?: string; // Data de criação, pode ser nulo
+  image_url?: string; // URL da imagem, pode ser nulo
 }
 
 interface Product {
@@ -192,7 +195,7 @@ const CatalogPage = () => {
       imageUrl:
         colorToUse?.image_url ||
         product.imagem_url ||
-        "https://via.placeholder.com/300x300?text=Sem+Imagem",
+        "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A",
       quantity: 1,
       cores: colorToUse?.name || "Padrão", // Propriedade agora válida
     });
@@ -295,9 +298,9 @@ const CatalogPage = () => {
                 <div className="mb-4 overflow-hidden rounded-md">
                   <img
                     src={
-                      selectedColor?.image_url ||
-                      product.imagem_url ||
-                      "https://via.placeholder.com/400x400?text=Sem+Imagem"
+                      selectedColor?.image_url ??
+                      product.imagem_url ??
+                      "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A"
                     }
                     alt={product.nome}
                     className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"

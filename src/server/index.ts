@@ -1,8 +1,12 @@
 import express from "express";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
+import { MercadoPagoConfig, Preference } from "mercadopago";
 
 const app = express();
 const PORT = 3000;
+
+// Mercado Pago configuration
+const client = new MercadoPagoConfig({ accessToken: "APP_USR-2919396018671962-060217-f6051ad26749ddd587e89a99ccbf93c9-2448973438" });
 
 app.use(express.json());
 
@@ -81,6 +85,33 @@ app.get("/api/pedidos", async (req, res) => {
   } catch (error: any) {
     console.error("Erro ao buscar pedidos:", error.message || error);
     res.status(500).json({ error: "Erro ao buscar pedidos" });
+  }
+});
+
+// Rota para criar uma preferência de pagamento
+app.post("/api/pagamento", async (req, res) => {
+  try {
+    const { items } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ error: "Itens inválidos para pagamento" });
+    }
+
+    const preference: Preference = {
+      items: items.map((item: any) => ({
+        title: item.name,
+        quantity: item.quantity,
+        currency_id: "BRL",
+        unit_price: item.price,
+      })),
+    };
+
+    const response = await client.preferences.create(preference);
+
+    res.json({ id: response.body.id, init_point: response.body.init_point });
+  } catch (error: any) {
+    console.error("Erro ao criar preferência de pagamento:", error.message || error);
+    res.status(500).json({ error: "Erro ao criar preferência de pagamento" });
   }
 });
 
