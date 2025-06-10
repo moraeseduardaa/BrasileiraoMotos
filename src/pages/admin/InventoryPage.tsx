@@ -964,9 +964,9 @@ const InventoryPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Estoque de Produtos</h1>
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <h1 className="text-xl sm:text-2xl font-bold">Estoque de Produtos</h1>
         <div className="flex gap-4">
           <Button
             onClick={openAddDialog}
@@ -996,12 +996,14 @@ const InventoryPage = () => {
         productCategories={productCategories}
       />
 
-      <ProductTable
-        loading={loading}
-        filteredProducts={filteredProducts}
-        openEditDialog={openEditDialog}
-        openDeleteDialog={openDeleteDialog}
-      />
+      <div className="overflow-x-auto">
+        <ProductTable
+          loading={loading}
+          filteredProducts={filteredProducts}
+          openEditDialog={openEditDialog}
+          openDeleteDialog={openDeleteDialog}
+        />
+      </div>
 
       {/* Dialog de Adicionar Produto */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -1326,7 +1328,7 @@ const InventoryPage = () => {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
                     Salvando...
@@ -1514,7 +1516,7 @@ const InventoryPage = () => {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
                     Salvando...
