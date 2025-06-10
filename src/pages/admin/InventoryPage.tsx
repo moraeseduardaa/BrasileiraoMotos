@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, ChangeEvent } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import {
   Table,
   TableBody,
@@ -34,7 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Edit, Trash2, Filter, Save } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Filter, Save, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,147 +50,28 @@ interface Product {
   category: string;
   stock: number;
   compatibility: string[];
+  featured?: boolean;
+  weight?: number;
+  height?: number;
+  width?: number;
+  length?: number;
+  colors?: ProductColor[];
 }
 
-// Dados mockados para demonstração
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Kit Relação Honda CG 160",
-    description:
-      "Kit completo de relação para Honda CG 160 composto por coroa, corrente e pinhão.",
-    price: 169.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Kit+Relação",
-    category: "Transmissão",
-    stock: 15,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 160 Fan",
-      "Honda CG 160 Start",
-      "Honda CG 160 Titan",
-    ],
-  },
-  {
-    id: "2",
-    name: "Jogo de Pastilhas de Freio",
-    description:
-      "Jogo de pastilhas de freio dianteiro de alta performance para motos 160cc.",
-    price: 45.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Pastilhas+Freio",
-    category: "Freios",
-    stock: 22,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 160 Fan",
-      "Yamaha Factor 150",
-      "Honda Bros 160",
-    ],
-  },
-  {
-    id: "3",
-    name: "Óleo Motor 10W30 1L",
-    description:
-      "Óleo lubrificante sintético para motor 4 tempos, ideal para motos 150cc e 160cc.",
-    price: 32.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Óleo+Motor",
-    category: "Lubrificantes",
-    stock: 45,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 160 Fan",
-      "Honda CG 150",
-      "Yamaha Factor 150",
-      "Honda Bros 160",
-    ],
-  },
-  {
-    id: "4",
-    name: "Filtro de Ar CG 160",
-    description:
-      "Filtro de ar original para Honda CG 160, proporciona melhor desempenho e economia de combustível.",
-    price: 39.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Filtro+Ar",
-    category: "Filtros",
-    stock: 18,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 160 Fan",
-      "Honda CG 160 Start",
-      "Honda CG 160 Titan",
-    ],
-  },
-  {
-    id: "5",
-    name: "Vela de Ignição",
-    description: "Vela de ignição de alto desempenho para motos 160cc.",
-    price: 25.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Vela+Ignição",
-    category: "Elétrica",
-    stock: 30,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 150",
-      "Yamaha Factor 150",
-      "Honda Bros 160",
-    ],
-  },
-  {
-    id: "6",
-    name: "Bateria 5Ah",
-    description:
-      "Bateria selada de 5 amperes, livre de manutenção, para motos 150cc e 160cc.",
-    price: 129.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Bateria",
-    category: "Elétrica",
-    stock: 12,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 150",
-      "Yamaha Factor 150",
-      "Honda Bros 160",
-      "Yamaha YBR 150",
-    ],
-  },
-  {
-    id: "7",
-    name: "Kit Cilindro CG 160",
-    description:
-      "Kit de cilindro completo para Honda CG 160, inclui pistão, anéis e juntas.",
-    price: 349.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Kit+Cilindro",
-    category: "Motor",
-    stock: 8,
-    compatibility: [
-      "Honda CG 160",
-      "Honda CG 160 Fan",
-      "Honda CG 160 Start",
-      "Honda CG 160 Titan",
-    ],
-  },
-  {
-    id: "8",
-    name: "Amortecedor Traseiro",
-    description:
-      "Par de amortecedores traseiros para motos 160cc, proporciona maior conforto e estabilidade.",
-    price: 159.9,
-    imageUrl: "https://via.placeholder.com/100x100?text=Amortecedor",
-    category: "Suspensão",
-    stock: 10,
-    compatibility: ["Honda CG 160", "Honda CG 160 Fan", "Honda CG 160 Start"],
-  },
-];
+interface ProductColor {
+  name: string;
+  hexCode: string;
+  stock: number;
+  imageUrl?: string;
+}
 
-// Lista de categorias de produtos
-const productCategories = [
-  "Todas",
-  "Transmissão",
-  "Freios",
-  "Lubrificantes",
-  "Filtros",
-  "Elétrica",
-  "Motor",
-  "Suspensão",
-];
+interface Moto {
+  id: string;
+  name: string;
+  brand: string;
+  yearStart?: number;
+  yearEnd?: number;
+}
 
 // Schema de validação para o formulário de produto
 const productSchema = z.object({
@@ -209,10 +91,353 @@ const productSchema = z.object({
     .string()
     .array()
     .nonempty("Selecione pelo menos uma moto compatível"),
+  featured: z.boolean().optional(),
+  weight: z.coerce.number().optional(),
+  height: z.coerce.number().optional(),
+  width: z.coerce.number().optional(),
+  length: z.coerce.number().optional(),
+  colors: z
+    .object({
+      name: z.string(),
+      hexCode: z.string(),
+      stock: z.coerce.number().min(0),
+      imageUrl: z.string().optional(),
+    })
+    .array()
+    .optional(),
+});
+
+const motoSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(3, "Nome precisa ter pelo menos 3 caracteres"),
+  brand: z.string().min(2, "Marca precisa ter pelo menos 2 caracteres"),
+  yearStart: z.coerce.number().optional(),
+  yearEnd: z.coerce.number().optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+type MotoFormValues = z.infer<typeof motoSchema>;
 
+// Componentes auxiliares
+const ProductColorsManager = ({ colors, setColors }) => {
+  const [newColor, setNewColor] = useState({ name: "", hex: "#000000" });
+
+  const predefinedColors = [
+    { name: "Preto", hex: "#000000" },
+    { name: "Branco", hex: "#FFFFFF" },
+    { name: "Vermelho", hex: "#DC2626" },
+    { name: "Azul", hex: "#2563EB" },
+    { name: "Prata", hex: "#94A3B8" },
+    { name: "Dourado", hex: "#F59E0B" },
+    { name: "Verde", hex: "#16A34A" },
+    { name: "Laranja", hex: "#EA580C" },
+    { name: "Cinza", hex: "#6B7280" },
+    { name: "Amarelo", hex: "#EAB308" },
+  ];
+
+  const addColor = (color) => {
+    if (!colors.find((c) => c.hexCode === color.hex)) {
+      setColors([
+        ...colors,
+        { name: color.name, hexCode: color.hex, stock: 0 },
+      ]);
+    }
+  };
+
+  const addCustomColor = () => {
+    if (
+      newColor.name.trim() &&
+      !colors.find((c) => c.hexCode === newColor.hex)
+    ) {
+      setColors([
+        ...colors,
+        { name: newColor.name, hexCode: newColor.hex, stock: 0 },
+      ]);
+      setNewColor({ name: "", hex: "#000000" });
+    }
+  };
+
+  const removeColor = (index) => {
+    const updatedColors = colors.filter((_, i) => i !== index);
+    setColors(updatedColors);
+  };
+
+  return (
+    <div className="space-y-4 border-t pt-4">
+      <Label>Cores do Produto</Label>
+
+      {colors.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-gray-600">
+            Cores Selecionadas:
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {colors.map((color, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border"
+              >
+                <div
+                  className="w-4 h-4 rounded-full border border-gray-300"
+                  style={{ backgroundColor: color.hexCode }}
+                  title={color.name}
+                />
+                <span className="text-sm text-gray-700">{color.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeColor(index)}
+                  className="text-red-500 hover:text-red-700 ml-1"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-gray-600">Cores Comuns:</h4>
+        <div className="grid grid-cols-5 gap-2">
+          {predefinedColors.map((color) => (
+            <button
+              key={color.hex}
+              type="button"
+              onClick={() => addColor(color)}
+              className={`flex items-center gap-1 p-2 rounded-lg border text-xs transition-colors ${
+                colors.find((c) => c.hexCode === color.hex)
+                  ? "bg-blue-50 border-blue-300 text-blue-700"
+                  : "bg-white border-gray-300 hover:bg-gray-50"
+              }`}
+              disabled={colors.find((c) => c.hexCode === color.hex)}
+            >
+              <div
+                className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
+                style={{ backgroundColor: color.hex }}
+              />
+              <span className="truncate">{color.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-gray-600">
+          Cor Personalizada:
+        </h4>
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Nome da cor"
+            value={newColor.name}
+            onChange={(e) => setNewColor({ ...newColor, name: e.target.value })}
+            className="flex-1"
+          />
+          <input
+            type="color"
+            value={newColor.hex}
+            onChange={(e) => setNewColor({ ...newColor, hex: e.target.value })}
+            className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+          />
+          <Button
+            type="button"
+            onClick={addCustomColor}
+            disabled={!newColor.name.trim()}
+            variant="outline"
+            size="sm"
+            className="px-3"
+          >
+            <Plus size={14} className="mr-1" />
+            Add
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Filters = ({
+  searchTerm,
+  setSearchTerm,
+  categoryFilter,
+  setCategoryFilter,
+  stockFilter,
+  setStockFilter,
+  handleSearch,
+  productCategories,
+}) => (
+  <Card>
+    <CardHeader className="pb-3">
+      <CardTitle>Filtros</CardTitle>
+      <CardDescription>
+        Utilize os filtros para encontrar produtos específicos
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <div className="flex-grow">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Input
+              placeholder="Buscar produtos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            {productCategories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={stockFilter} onValueChange={setStockFilter}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Estoque" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="low">Estoque Baixo (&lt; 10)</SelectItem>
+            <SelectItem value="out">Sem Estoque</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button onClick={handleSearch} className="bg-moto-red hover:bg-red-700">
+          <Filter className="h-4 w-4 mr-2" />
+          Filtrar
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const ProductTable = ({
+  loading,
+  filteredProducts,
+  openEditDialog,
+  openDeleteDialog,
+}) => (
+  <Card>
+    <CardContent className="pt-6">
+      {loading ? (
+        <div className="p-8 flex justify-center">
+          <svg
+            className="animate-spin h-8 w-8 text-moto-red"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        </div>
+      ) : filteredProducts.length > 0 ? (
+        <div className="relative overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">ID</TableHead>
+                <TableHead className="w-[180px]">Produto</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead className="text-right">Preço</TableHead>
+                <TableHead className="text-right">Estoque</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="font-medium">{product.id}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="h-10 w-10 rounded-md object-cover mr-3"
+                      />
+                      <span className="font-medium">{product.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {product.description}
+                  </TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {product.price.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge
+                      className={
+                        product.stock === 0
+                          ? "bg-red-500"
+                          : product.stock < 10
+                          ? "bg-amber-500"
+                          : "bg-green-500"
+                      }
+                    >
+                      {product.stock}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openEditDialog(product)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => openDeleteDialog(product)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <h3 className="text-xl font-medium text-gray-600">
+            Nenhum produto encontrado
+          </h3>
+          <p className="mt-2 text-gray-500">
+            Tente ajustar seus filtros ou adicione novos produtos
+          </p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
+// Tela principal
 const InventoryPage = () => {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -225,20 +450,173 @@ const InventoryPage = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [compatibilityOptions] = useState([
-    "Honda CG 160",
-    "Honda CG 160 Fan",
-    "Honda CG 160 Start",
-    "Honda CG 160 Titan",
-    "Honda CG 150",
-    "Yamaha Factor 150",
-    "Honda Bros 160",
-    "Yamaha YBR 150",
-  ]);
+
+  const [compatibilityOptions, setCompatibilityOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
+  const [productCategories, setProductCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchMotoModels = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("modelos_moto")
+          .select("id, nome, marca");
+
+        if (error) {
+          console.error("Erro ao buscar modelos de moto:", error);
+          return;
+        }
+
+        const motoModels = data.map((model) => ({
+          id: model.id,
+          name: `${model.nome} (${model.marca})`,
+        }));
+        setCompatibilityOptions(motoModels);
+      } catch (error) {
+        console.error("Erro inesperado ao buscar modelos de moto:", error);
+      }
+    };
+
+    fetchMotoModels();
+  }, []);
+
+  useEffect(() => {
+    const fetchProductsAndCategories = async () => {
+      setLoading(true);
+      try {
+        // Buscar categorias
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from("categorias")
+          .select("id, nome");
+
+        if (categoriesError) {
+          console.error("Erro ao buscar categorias:", categoriesError);
+          return;
+        }
+
+        const fetchedCategories = categoriesData.map(
+          (category) => category.nome
+        );
+        setProductCategories(["Todas", ...fetchedCategories]);
+
+        // Buscar produtos
+        const { data: productsData, error: productsError } = await supabase
+          .from("produtos")
+          .select(
+            "id, nome, descricao, preco, estoque, categoria_id, imagem_url, destaque, peso, altura, largura, comprimento"
+          );
+
+        if (productsError) {
+          console.error("Erro ao buscar produtos:", productsError);
+          return;
+        }
+
+        const fetchedProducts = productsData.map((product) => ({
+          id: product.id,
+          name: product.nome,
+          description: product.descricao,
+          price: product.preco,
+          stock: product.estoque,
+          category:
+            categoriesData.find((cat) => cat.id === product.categoria_id)
+              ?.nome || "",
+          imageUrl: product.imagem_url,
+          featured: product.destaque,
+          weight: product.peso,
+          height: product.altura,
+          width: product.largura,
+          length: product.comprimento,
+          compatibility: [], // Placeholder, ajustar se necessário
+          colors: [], // Placeholder, ajustar se necessário
+        }));
+
+        setProducts(fetchedProducts);
+        setFilteredProducts(fetchedProducts);
+      } catch (error) {
+        console.error("Erro inesperado ao buscar dados:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProductsAndCategories();
+  }, []);
+
+  const handleImageUpload = async () => {
+    if (!imageFile) {
+      toast({
+        title: "Erro",
+        description: "Nenhum arquivo selecionado para upload.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const fileName = `${Date.now()}-${imageFile.name}`;
+      console.log("Iniciando upload da imagem:", fileName);
+
+      const { data, error } = await supabase.storage
+        .from("images")
+        .upload(fileName, imageFile);
+
+      if (error) {
+        console.error("Erro ao fazer upload da imagem:", error);
+        toast({
+          title: "Erro",
+          description: `Falha ao enviar a imagem: ${error.message}`,
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      console.log("Upload concluído. Caminho do arquivo:", data.path);
+
+      const { data: publicUrlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(data.path);
+
+      const publicUrl = publicUrlData?.publicUrl;
+
+      if (!publicUrl) {
+        console.error("Erro ao obter a URL pública:", data.path);
+        toast({
+          title: "Erro",
+          description: "Não foi possível obter a URL pública da imagem.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      console.log("URL pública gerada:", publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error("Erro inesperado ao fazer upload da imagem:", error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro inesperado ao enviar a imagem.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setImageFile(e.target.files[0]);
+    }
+  };
+
   const [selectedCompatibility, setSelectedCompatibility] = useState<string[]>(
     []
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [motos, setMotos] = useState<Moto[]>([]);
+  const [isAddMotoDialogOpen, setIsAddMotoDialogOpen] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -250,26 +628,28 @@ const InventoryPage = () => {
       category: "",
       imageUrl: "https://via.placeholder.com/300x300?text=Novo+Produto",
       compatibility: [],
+      featured: false,
+      weight: undefined,
+      height: undefined,
+      width: undefined,
+      length: undefined,
+      colors: [],
     },
   });
 
-  useEffect(() => {
-    // Simula carregamento de dados da API
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setFilteredProducts(mockProducts);
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
+  const motoForm = useForm<MotoFormValues>({
+    resolver: zodResolver(motoSchema),
+    defaultValues: {
+      name: "",
+      brand: "",
+      yearStart: undefined,
+      yearEnd: undefined,
+    },
+  });
 
   const applyFilters = useCallback(() => {
     let filtered = [...products];
 
-    // Filtro por termo de busca
     if (searchTerm) {
       filtered = filtered.filter(
         (product) =>
@@ -278,14 +658,12 @@ const InventoryPage = () => {
       );
     }
 
-    // Filtro por categoria
     if (categoryFilter !== "Todas") {
       filtered = filtered.filter(
         (product) => product.category === categoryFilter
       );
     }
 
-    // Filtro por estoque
     if (stockFilter === "low") {
       filtered = filtered.filter((product) => product.stock < 10);
     } else if (stockFilter === "out") {
@@ -294,6 +672,10 @@ const InventoryPage = () => {
 
     setFilteredProducts(filtered);
   }, [products, searchTerm, categoryFilter, stockFilter]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const handleSearch = () => {
     applyFilters();
@@ -308,13 +690,34 @@ const InventoryPage = () => {
       category: "",
       imageUrl: "https://via.placeholder.com/300x300?text=Novo+Produto",
       compatibility: [],
+      featured: false,
+      weight: undefined,
+      height: undefined,
+      width: undefined,
+      length: undefined,
+      colors: [],
     });
     setSelectedCompatibility([]);
+    setImageFile(null);
+  };
+
+  const resetMotoForm = () => {
+    motoForm.reset({
+      name: "",
+      brand: "",
+      yearStart: undefined,
+      yearEnd: undefined,
+    });
   };
 
   const openAddDialog = () => {
     resetForm();
     setIsAddDialogOpen(true);
+  };
+
+  const openAddMotoDialog = () => {
+    resetMotoForm();
+    setIsAddMotoDialogOpen(true);
   };
 
   const openEditDialog = (product: Product) => {
@@ -328,6 +731,12 @@ const InventoryPage = () => {
       category: product.category,
       imageUrl: product.imageUrl,
       compatibility: product.compatibility,
+      featured: product.featured,
+      weight: product.weight,
+      height: product.height,
+      width: product.width,
+      length: product.length,
+      colors: product.colors,
     });
     setSelectedCompatibility(product.compatibility);
     setIsEditDialogOpen(true);
@@ -338,38 +747,116 @@ const InventoryPage = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleCompatibilityChange = (value: string) => {
+  const handleCompatibilityChange = (id: string) => {
     setSelectedCompatibility((prev) => {
-      const isSelected = prev.includes(value);
+      const isSelected = prev.includes(id);
       if (isSelected) {
-        return prev.filter((item) => item !== value);
+        return prev.filter((item) => item !== id);
       } else {
-        return [...prev, value];
+        return [...prev, id];
       }
     });
   };
 
   useEffect(() => {
     if (selectedCompatibility.length > 0) {
-      form.setValue(
-        "compatibility",
-        selectedCompatibility as [string, ...string[]]
-      );
+      if (selectedCompatibility.length > 0) {
+        form.setValue("compatibility", [
+          selectedCompatibility[0],
+          ...selectedCompatibility.slice(1),
+        ]);
+      } else {
+        form.setValue("compatibility", [""]);
+      }
     } else {
-      form.setValue("compatibility", [""] as [string, ...string[]]);
+      form.setValue("compatibility", [""]);
     }
   }, [selectedCompatibility, form]);
 
   const onSubmitAdd = async (data: ProductFormValues) => {
     setIsSaving(true);
-    // Simula delay de API
-    setTimeout(() => {
+
+    try {
+      const imageUrl = await handleImageUpload();
+      if (!imageUrl) {
+        setIsSaving(false);
+        return;
+      }
+
       const newProduct = {
-        ...data,
-        id: Date.now().toString(), // Gera um ID único
+        id: crypto.randomUUID(),
+        nome: data.name,
+        descricao: data.description,
+        preco: data.price,
+        estoque: data.stock,
+        categoria_id: null,
+        imagem_url: imageUrl,
+        destaque: data.featured || false,
+        peso: data.weight || null,
+        altura: data.height || null,
+        largura: data.width || null,
+        comprimento: data.length || null,
       };
 
-      setProducts((prev) => [...prev, newProduct as Product]);
+      const { data: productData, error: productError } = await supabase
+        .from("produtos")
+        .insert([newProduct])
+        .select();
+
+      if (productError) {
+        console.error("Erro ao adicionar produto:", productError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível adicionar o produto.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.colors && data.colors.length > 0) {
+        const colors = data.colors.map((color) => ({
+          id: crypto.randomUUID(),
+          product_id: productData[0].id,
+          name: color.name,
+          hex_code: color.hexCode,
+          stock: color.stock,
+          image_url: color.imageUrl || null,
+        }));
+
+        const { error: colorError } = await supabase
+          .from("product_colors")
+          .insert(colors);
+
+        if (colorError) {
+          console.error("Erro ao adicionar cores:", colorError);
+          toast({
+            title: "Erro",
+            description: "Não foi possível adicionar as cores do produto.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      setProducts((prev) => [
+        ...prev,
+        {
+          id: productData[0].id,
+          name: newProduct.nome,
+          description: newProduct.descricao,
+          price: newProduct.preco,
+          imageUrl: newProduct.imagem_url,
+          category: newProduct.categoria_id || "",
+          stock: newProduct.estoque,
+          compatibility: [],
+          featured: newProduct.destaque,
+          weight: newProduct.peso,
+          height: newProduct.altura,
+          width: newProduct.largura,
+          length: newProduct.comprimento,
+          colors: [],
+        },
+      ]);
       setIsAddDialogOpen(false);
       resetForm();
 
@@ -377,16 +864,66 @@ const InventoryPage = () => {
         title: "Produto adicionado",
         description: "O produto foi adicionado com sucesso!",
       });
-
+    } catch (error) {
+      console.error("Erro inesperado ao adicionar produto:", error);
+    } finally {
       setIsSaving(false);
-    }, 1000);
+    }
+  };
+
+  const onSubmitAddMoto = async (data: MotoFormValues) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from("modelos_moto").insert([
+        {
+          id: crypto.randomUUID(),
+          nome: data.name,
+          marca: data.brand,
+          ano_inicio: data.yearStart,
+          ano_fim: data.yearEnd,
+        },
+      ]);
+
+      if (error) {
+        console.error("Erro ao adicionar moto:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível adicionar a moto.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Moto adicionada",
+        description: "A moto foi adicionada com sucesso!",
+      });
+
+      const { data: updatedData, error: fetchError } = await supabase
+        .from("modelos_moto")
+        .select("id, nome, marca");
+
+      if (!fetchError) {
+        const updatedMotoModels = updatedData.map((model) => ({
+          id: model.id,
+          name: `${model.nome} (${model.marca})`,
+        }));
+        setCompatibilityOptions(updatedMotoModels);
+      }
+
+      setIsAddMotoDialogOpen(false);
+      resetMotoForm();
+    } catch (error) {
+      console.error("Erro inesperado ao adicionar moto:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const onSubmitEdit = async (data: ProductFormValues) => {
     if (!selectedProduct) return;
 
     setIsSaving(true);
-    // Simula delay de API
     setTimeout(() => {
       const updatedProduct = {
         ...data,
@@ -413,7 +950,6 @@ const InventoryPage = () => {
     if (!selectedProduct) return;
 
     setIsSaving(true);
-    // Simula delay de API
     setTimeout(() => {
       setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id));
       setIsDeleteDialogOpen(false);
@@ -431,185 +967,41 @@ const InventoryPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Estoque de Produtos</h1>
-        <Button
-          onClick={openAddDialog}
-          className="bg-moto-red hover:bg-red-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Produto
-        </Button>
+        <div className="flex gap-4">
+          <Button
+            onClick={openAddDialog}
+            className="bg-moto-red hover:bg-red-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Produto
+          </Button>
+          <Button
+            onClick={openAddMotoDialog}
+            className="bg-moto-red hover:bg-red-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Moto
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Filtros</CardTitle>
-          <CardDescription>
-            Utilize os filtros para encontrar produtos específicos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-            <div className="flex-grow">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+      <Filters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
+        stockFilter={stockFilter}
+        setStockFilter={setStockFilter}
+        handleSearch={handleSearch}
+        productCategories={productCategories}
+      />
 
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {productCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={stockFilter} onValueChange={setStockFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Estoque" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="low">Estoque Baixo (&lt; 10)</SelectItem>
-                <SelectItem value="out">Sem Estoque</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              onClick={handleSearch}
-              className="bg-moto-red hover:bg-red-700"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtrar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
-            <div className="p-8 flex justify-center">
-              <svg
-                className="animate-spin h-8 w-8 text-moto-red"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-            </div>
-          ) : filteredProducts.length > 0 ? (
-            <div className="relative overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">ID</TableHead>
-                    <TableHead className="w-[180px]">Produto</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="text-right">Estoque</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">
-                        {product.id}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <img
-                            src={product.imageUrl}
-                            alt={product.name}
-                            className="h-10 w-10 rounded-md object-cover mr-3"
-                          />
-                          <span className="font-medium">{product.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {product.description}
-                      </TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {product.price.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          className={
-                            product.stock === 0
-                              ? "bg-red-500"
-                              : product.stock < 10
-                              ? "bg-amber-500"
-                              : "bg-green-500"
-                          }
-                        >
-                          {product.stock}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => openEditDialog(product)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => openDeleteDialog(product)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <h3 className="text-xl font-medium text-gray-600">
-                Nenhum produto encontrado
-              </h3>
-              <p className="mt-2 text-gray-500">
-                Tente ajustar seus filtros ou adicione novos produtos
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ProductTable
+        loading={loading}
+        filteredProducts={filteredProducts}
+        openEditDialog={openEditDialog}
+        openDeleteDialog={openDeleteDialog}
+      />
 
       {/* Dialog de Adicionar Produto */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -622,8 +1014,8 @@ const InventoryPage = () => {
           </DialogHeader>
 
           <form onSubmit={form.handleSubmit(onSubmitAdd)}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-              <div className="md:col-span-2">
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 py-4">
+              <div>
                 <Label htmlFor="name">Nome do Produto*</Label>
                 <Input
                   id="name"
@@ -637,7 +1029,7 @@ const InventoryPage = () => {
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <Label htmlFor="description">Descrição*</Label>
                 <Input
                   id="description"
@@ -684,6 +1076,58 @@ const InventoryPage = () => {
               </div>
 
               <div>
+                <Label htmlFor="weight">Peso (kg)</Label>
+                <Input
+                  type="number"
+                  id="weight"
+                  step="0.01"
+                  {...form.register("weight")}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="height">Altura (cm)</Label>
+                <Input
+                  type="number"
+                  id="height"
+                  step="0.01"
+                  {...form.register("height")}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="width">Largura (cm)</Label>
+                <Input
+                  type="number"
+                  id="width"
+                  step="0.01"
+                  {...form.register("width")}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="length">Comprimento (cm)</Label>
+                <Input
+                  type="number"
+                  id="length"
+                  step="0.01"
+                  {...form.register("length")}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="checkbox"
+                  id="featured"
+                  {...form.register("featured")}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="featured" className="text-sm">
+                  Destaque
+                </Label>
+              </div>
+
+              <div>
                 <Label htmlFor="category">Categoria*</Label>
                 <Select
                   onValueChange={(value) => form.setValue("category", value)}
@@ -710,42 +1154,25 @@ const InventoryPage = () => {
               </div>
 
               <div>
-                <Label htmlFor="imageUrl">URL da Imagem*</Label>
+                <Label htmlFor="image">Imagem do Produto*</Label>
                 <Input
-                  id="imageUrl"
-                  {...form.register("imageUrl")}
-                  placeholder="https://exemplo.com/imagem.jpg"
+                  type="file"
+                  id="image"
+                  accept="image/*"
+                  onChange={handleImageChange}
                 />
-                {form.formState.errors.imageUrl && (
-                  <p className="text-sm text-red-500 mt-1">
-                    {form.formState.errors.imageUrl.message}
+                {imageFile && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Imagem selecionada: {imageFile.name}
                   </p>
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <Label htmlFor="compatibility">Compatibilidade*</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                  {compatibilityOptions.map((option) => (
-                    <div key={option} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`compatibility-${option}`}
-                        checked={selectedCompatibility.includes(option)}
-                        onChange={() => handleCompatibilityChange(option)}
-                        className="mr-2"
-                      />
-                      <Label htmlFor={`compatibility-${option}`}>
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                {form.formState.errors.compatibility && (
-                  <p className="text-sm text-red-500 mt-1">
-                    {form.formState.errors.compatibility.message}
-                  </p>
-                )}
+              <div>
+                <ProductColorsManager
+                  colors={form.getValues("colors") || []}
+                  setColors={(colors) => form.setValue("colors", colors)}
+                />
               </div>
             </div>
 
@@ -790,6 +1217,124 @@ const InventoryPage = () => {
                   <>
                     <Save className="mr-2 h-4 w-4" />
                     Adicionar Produto
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Adicionar Moto */}
+      <Dialog open={isAddMotoDialogOpen} onOpenChange={setIsAddMotoDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar Nova Moto</DialogTitle>
+            <DialogDescription>
+              Preencha os dados da nova moto para adicioná-la ao sistema
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={motoForm.handleSubmit(onSubmitAddMoto)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+              <div className="md:col-span-2">
+                <Label htmlFor="name">Nome da Moto*</Label>
+                <Input
+                  id="name"
+                  {...motoForm.register("name")}
+                  placeholder="Ex: Honda CG 160"
+                />
+                {motoForm.formState.errors.name && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {motoForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="brand">Marca*</Label>
+                <Input
+                  id="brand"
+                  {...motoForm.register("brand")}
+                  placeholder="Ex: Honda"
+                />
+                {motoForm.formState.errors.brand && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {motoForm.formState.errors.brand.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="yearStart">Ano de Início</Label>
+                <Input
+                  type="number"
+                  id="yearStart"
+                  {...motoForm.register("yearStart")}
+                />
+                {motoForm.formState.errors.yearStart && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {motoForm.formState.errors.yearStart.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="yearEnd">Ano de Fim</Label>
+                <Input
+                  type="number"
+                  id="yearEnd"
+                  {...motoForm.register("yearEnd")}
+                />
+                {motoForm.formState.errors.yearEnd && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {motoForm.formState.errors.yearEnd.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddMotoDialogOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="bg-moto-red hover:bg-red-700"
+              >
+                {isSaving ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Adicionar Moto
                   </>
                 )}
               </Button>
@@ -915,16 +1460,16 @@ const InventoryPage = () => {
                 <Label htmlFor="compatibility">Compatibilidade*</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                   {compatibilityOptions.map((option) => (
-                    <div key={option} className="flex items-center">
+                    <div key={option.id} className="flex items-center">
                       <input
                         type="checkbox"
-                        id={`compatibility-edit-${option}`}
-                        checked={selectedCompatibility.includes(option)}
-                        onChange={() => handleCompatibilityChange(option)}
+                        id={`compatibility-edit-${option.id}`}
+                        checked={selectedCompatibility.includes(option.id)}
+                        onChange={() => handleCompatibilityChange(option.id)}
                         className="mr-2"
                       />
-                      <Label htmlFor={`compatibility-edit-${option}`}>
-                        {option}
+                      <Label htmlFor={`compatibility-edit-${option.id}`}>
+                        {option.name}
                       </Label>
                     </div>
                   ))}
@@ -1046,7 +1591,7 @@ const InventoryPage = () => {
                     <path
                       className="opacity-75"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
                   Excluindo...

@@ -155,7 +155,7 @@ const CheckoutPage = () => {
     }
 
     loadCheckoutData();
-  }, []);
+  }, [form, toast]);
 
   const onSubmit = (data: CheckoutFormValues) => {
     if (items.length === 0) {

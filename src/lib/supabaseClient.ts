@@ -44,7 +44,47 @@ export async function criarPedido(pedido) {
 }
 
 export async function listarPedidos(usuarioId) {
-  return await supabase.from("pedidos").select("*").eq("usuario_id", usuarioId);
+  return await supabase
+    .from("pedidos")
+    .select(`
+      *,
+      itens_pedido(*),
+      usuarios(*)
+    `)
+    .eq("usuario_id", usuarioId);
+}
+
+export async function listarPedidosComItens(usuarioId) {
+  const { data: pedidos, error: pedidosError } = await supabase
+    .from("pedidos")
+    .select("*")
+    .eq("usuario_id", usuarioId);
+
+  if (pedidosError) {
+    return { data: null, error: pedidosError };
+  }
+
+  const pedidosComItens = await Promise.all(
+    pedidos.map(async (pedido) => {
+      if (!pedido.id) {
+        return { ...pedido, itens: [] }; // Ignorar pedidos sem ID válido
+      }
+
+      const { data: itens, error: itensError } = await supabase
+        .from("itens_pedido")
+        .select("*")
+        .eq("pedido_id", pedido.id);
+
+      if (itensError) {
+        console.error(`Erro ao buscar itens para o pedido ${pedido.id}:`, itensError);
+        return { ...pedido, itens: [] }; // Retorna o pedido sem itens em caso de erro
+      }
+
+      return { ...pedido, itens };
+    })
+  );
+
+  return { data: pedidosComItens, error: null };
 }
 
 // Funções para a tabela de itens do pedido

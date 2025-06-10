@@ -1,43 +1,16 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Truck, CreditCard, MessageSquare } from "lucide-react";
+
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
-
-const featuredProducts = [
-  {
-    id: "1",
-    name: "Kit Relação Honda CG 160",
-    price: 169.9,
-    imageUrl: "https://via.placeholder.com/300x300?text=Kit+Relação",
-    category: "Transmissão",
-  },
-  {
-    id: "2",
-    name: "Jogo de Pastilhas de Freio",
-    price: 45.9,
-    imageUrl: "https://via.placeholder.com/300x300?text=Pastilhas+Freio",
-    category: "Freios",
-  },
-  {
-    id: "3",
-    name: "Óleo Motor 10W30 1L",
-    price: 32.9,
-    imageUrl: "https://via.placeholder.com/300x300?text=Óleo+Motor",
-    category: "Lubrificantes",
-  },
-  {
-    id: "4",
-    name: "Filtro de Ar CG 160",
-    price: 39.9,
-    imageUrl: "https://via.placeholder.com/300x300?text=Filtro+Ar",
-    category: "Filtros",
-  },
-];
+import { supabase } from "@/lib/supabaseClient";
+import { v4 as uuidv4 } from "uuid";
+import TestimonialsSection from "@/components/TestimonialsSection";
 
 const testimonials = [
   {
@@ -87,9 +60,199 @@ const advantages = [
 ];
 
 const Index = () => {
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [newTestimonial, setNewTestimonial] = useState("");
+  const [clientTestimonials, setClientTestimonials] = useState(testimonials);
+  const [rating, setRating] = useState(5);
+  const [faqs, setFaqs] = useState([]);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportDescription, setSupportDescription] = useState("");
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    async function fetchCatalogProducts() {
+      try {
+        const { data, error } = await supabase
+          .from("produtos")
+          .select("*")
+          .limit(4); // Limita a 4 produtos
+
+        if (error) {
+          console.error("Erro ao buscar produtos:", error);
+        } else {
+          setCatalogProducts(data || []);
+        }
+      } catch (err) {
+        console.error("Erro inesperado:", err);
+      }
+    }
+
+    fetchCatalogProducts();
+  }, []);
+
+  useEffect(() => {
+    async function fetchTestimonials() {
+      try {
+        const { data, error } = await supabase
+          .from("avaliacoes")
+          .select("id, comentario, nota, criado_em, usuario_id")
+          .eq("aprovado", true);
+
+        if (error) {
+          console.error("Erro ao buscar depoimentos:", error);
+        } else {
+          const formattedTestimonials = await Promise.all(
+            data.map(async (item) => {
+              let userName = "Cliente Anônimo";
+              if (item.usuario_id) {
+                try {
+                  const { data: userData, error: userError } = await supabase
+                    .from("usuarios")
+                    .select("nome_completo") // Corrigido para usar "nome_completo"
+                    .eq("id", item.usuario_id)
+                    .single();
+
+                  if (userError) {
+                    console.error(
+                      `Erro ao buscar nome do usuário com ID ${item.usuario_id}:`,
+                      userError
+                    );
+                  } else if (userData) {
+                    userName =
+                      userData.nome_completo.length > 20
+                        ? `${userData.nome_completo.slice(0, 20)}...` // Corta nomes longos
+                        : userData.nome_completo;
+                  }
+                } catch (fetchError) {
+                  console.error(
+                    `Erro inesperado ao buscar nome do usuário com ID ${item.usuario_id}:`,
+                    fetchError
+                  );
+                }
+              }
+
+              return {
+                id: item.id,
+                name: userName,
+                rating: item.nota,
+                text: item.comentario,
+                date: new Date(item.criado_em).toLocaleDateString("pt-BR"),
+              };
+            })
+          );
+          setClientTestimonials(formattedTestimonials);
+        }
+      } catch (err) {
+        console.error("Erro inesperado:", err);
+      }
+    }
+
+    fetchTestimonials();
+  }, []);
+
+  useEffect(() => {
+    async function fetchFaqs() {
+      try {
+        const { data, error } = await supabase
+          .from("faq")
+          .select("*")
+          .eq("ativo", true)
+          .order("ordem", { ascending: true });
+
+        if (error) {
+          console.error("Erro ao buscar FAQs:", error);
+        } else {
+          setFaqs(data || []);
+        }
+      } catch (err) {
+        console.error("Erro inesperado:", err);
+      }
+    }
+
+    fetchFaqs();
+  }, []);
+
+  const handleAddTestimonial = async () => {
+    if (newTestimonial.trim()) {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser(); // Obtém o usuário autenticado
+
+        if (authError) {
+          console.error("Erro ao obter usuário autenticado:", authError);
+          alert("Erro ao obter informações do usuário. Tente novamente.");
+          return;
+        }
+
+        const newEntry = {
+          id: uuidv4(),
+          usuario_id: user?.id || null, // Usa o ID do usuário autenticado, se disponível
+          produto_id: null, // Sempre envia null para produto_id
+          nota: rating, // Nota selecionada
+          comentario: newTestimonial,
+          aprovado: false, // Depoimento aguardará aprovação
+        };
+
+        const { error } = await supabase.from("avaliacoes").insert([newEntry]); // Insere o depoimento
+
+        if (error) {
+          console.error("Erro ao enviar depoimento:", error);
+        } else {
+          alert("Depoimento enviado com sucesso! Aguarde aprovação.");
+          setNewTestimonial("");
+          setRating(5);
+        }
+      } catch (err) {
+        console.error("Erro inesperado:", err);
+      }
+    } else {
+      alert("Por favor, preencha todos os campos.");
+    }
+  };
+
+  const handleCreateSupportTicket = async () => {
+    if (supportSubject.trim() && supportDescription.trim()) {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error("Erro ao obter usuário autenticado:", authError);
+          alert("Erro ao obter informações do usuário. Tente novamente.");
+          return;
+        }
+
+        const newTicket = {
+          usuario_id: user?.id || null,
+          assunto: supportSubject,
+          descricao: supportDescription,
+        };
+
+        const { error } = await supabase
+          .from("tickets_suporte")
+          .insert([newTicket]);
+
+        if (error) {
+          console.error("Erro ao criar ticket de suporte:", error);
+        } else {
+          alert("Ticket de suporte criado com sucesso!");
+          setSupportSubject("");
+          setSupportDescription("");
+        }
+      } catch (err) {
+        console.error("Erro inesperado:", err);
+      }
+    } else {
+      alert("Por favor, preencha todos os campos.");
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -166,33 +329,39 @@ const Index = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <div key={product.id} className="product-card group">
-                <div className="mb-4 overflow-hidden rounded-md">
+            {catalogProducts.map((product) => (
+              <div
+                key={product.id}
+                className="product-card group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="mb-4 overflow-hidden rounded-t-lg">
                   <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                    src={product.imagem_url}
+                    alt={product.nome}
+                    className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
-                <span className="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded mb-2">
-                  {product.category}
-                </span>
-                <h3 className="font-medium text-lg mb-2">{product.name}</h3>
-                <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold text-moto-red">
-                    {product.price.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
+                <div className="p-4">
+                  <span className="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded mb-2">
+                    {product.categoria}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="btn-outline-moto"
-                  >
-                    Ver produto
-                  </Button>
+                  <h3 className="font-medium text-lg mb-2">{product.nome}</h3>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xl font-bold text-moto-red">
+                      {product.preco.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="btn-outline-moto"
+                      asChild
+                    >
+                      <Link to={`/catalogo`}>Ver produto</Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -201,55 +370,59 @@ const Index = () => {
       </section>
 
       {/* Depoimentos */}
+      <TestimonialsSection />
+
+      {/* FAQ e Suporte */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            O que nossos clientes dizem
+          <h2 className="text-3xl font-bold text-center mb-8">
+            Dúvidas Frequentes (FAQ)
           </h2>
 
-          <Carousel className="w-full">
-            <CarouselContent>
-              {testimonials.map((testimonial) => (
-                <CarouselItem
-                  key={testimonial.id}
-                  className="md:basis-1/2 lg:basis-1/3"
-                >
-                  <div className="h-full bg-gray-50 rounded-lg p-6 shadow-sm border flex flex-col">
-                    <div className="flex items-center mb-4">
-                      <div className="h-10 w-10 rounded-full bg-moto-red text-white flex items-center justify-center font-bold">
-                        {testimonial.name.charAt(0)}
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="font-medium">{testimonial.name}</h3>
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className={`w-4 h-4 ${
-                                i < testimonial.rating
-                                  ? "text-yellow-500"
-                                  : "text-gray-300"
-                              }`}
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 flex-grow">
-                      {testimonial.text}
-                    </p>
-                    <div className="mt-4 text-sm text-gray-500">
-                      {testimonial.date}
-                    </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
+          <div className="space-y-6 max-w-3xl mx-auto">
+            {faqs.map((faq) => (
+              <div key={faq.id} className="border-b pb-4">
+                <h3 className="text-xl font-semibold">{faq.pergunta}</h3>
+                <p className="text-gray-700 mt-2">{faq.resposta}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <h3 className="text-2xl font-bold mb-4">Ainda com dúvidas?</h3>
+            <p className="text-gray-700 mb-6">
+              Entre em contato com nosso time de suporte. Estamos prontos para
+              te ajudar!
+            </p>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Assunto"
+                value={supportSubject}
+                onChange={(e) => setSupportSubject(e.target.value)}
+                className="w-full border rounded px-4 py-2"
+              />
+              <textarea
+                placeholder="Descrição"
+                value={supportDescription}
+                onChange={(e) => setSupportDescription(e.target.value)}
+                className="w-full border rounded px-4 py-2"
+              />
+              <Button
+                className="btn-moto px-8 py-4 text-lg"
+                onClick={handleCreateSupportTicket}
+              >
+                Enviar Ticket
+              </Button>
+              <Button
+                variant="outline"
+                className="btn-outline-moto px-8 py-4 text-lg"
+                asChild
+              >
+                <Link to="/cliente/suporte">Ver Meus Tickets</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </section>
 
