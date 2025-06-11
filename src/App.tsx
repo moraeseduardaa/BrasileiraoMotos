@@ -30,6 +30,11 @@ import DashboardPage from "@/pages/admin/DashboardPage";
 import InventoryPage from "@/pages/admin/InventoryPage";
 import ManualOrderPage from "@/pages/admin/ManualOrderPage";
 import MotoModelsPage from "@/pages/admin/MotoModelsPage";
+import ProductCreatePage from "@/pages/admin/ProductCreatePage";
+import ProductDetailsPage from "@/pages/ProductDetailsPage";
+import MotorcycleManagePage from "@/pages/admin/MotorcycleManagePage";
+import CategoryManagePage from "@/pages/admin/CategoryManagePage";
+import ProductCompatibilityPage from "@/pages/admin/ProductCompatibilityPage";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +48,8 @@ const AppRoutes = () => {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Index />} />
         <Route path="catalogo" element={<CatalogPage />} />
+        <Route path="produto/:id" element={<ProductDetailsPage />} />{" "}
+        {/* Nova rota */}
       </Route>
 
       {/* Rotas de autenticação */}
@@ -81,6 +88,17 @@ const AppRoutes = () => {
         <Route path="estoque" element={<InventoryPage />} />
         <Route path="pedidos/novo" element={<ManualOrderPage />} />
         <Route path="modelos-moto" element={<MotoModelsPage />} />
+        <Route path="produtos/novo" element={<ProductCreatePage />} />{" "}
+        {/* Nova rota */}
+        <Route path="modelos-moto" element={<MotorcycleManagePage />} />{" "}
+        {/* Nova rota */}
+        <Route path="categorias" element={<CategoryManagePage />} />{" "}
+        {/* Nova rota */}
+        <Route
+          path="compatibilidade-produtos"
+          element={<ProductCompatibilityPage />}
+        />{" "}
+        {/* Nova rota */}
       </Route>
 
       {/* Página 404 */}

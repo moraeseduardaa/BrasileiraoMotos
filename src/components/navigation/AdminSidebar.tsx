@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,9 +17,37 @@ const AdminSidebar = () => {
   };
 
   const menuItems = [
-    { name: "Dashboard", path: "/admin/dashboard", icon: <BarChart size={20} /> },
+    {
+      name: "Dashboard",
+      path: "/admin/dashboard",
+      icon: <BarChart size={20} />,
+    },
     { name: "Estoque", path: "/admin/estoque", icon: <Package size={20} /> },
-    { name: "Novo Pedido", path: "/admin/pedidos/novo", icon: <ShoppingCart size={20} /> },
+    {
+      name: "Novo Pedido",
+      path: "/admin/pedidos/novo",
+      icon: <ShoppingCart size={20} />,
+    },
+    {
+      name: "Cadastrar Produto",
+      path: "/admin/produtos/novo",
+      icon: <Package size={20} />,
+    },
+    {
+      name: "Gerenciar Modelos de Moto",
+      path: "/admin/modelos-moto",
+      icon: <Package size={20} />,
+    }, // Novo item
+    {
+      name: "Gerenciar Categorias",
+      path: "/admin/categorias",
+      icon: <Package size={20} />,
+    }, // Novo item
+    {
+      name: "Gerenciar Compatibilidade de Produtos",
+      path: "/admin/compatibilidade-produtos",
+      icon: <Package size={20} />,
+    }, // Novo item
     { name: "Voltar ao Site", path: "/", icon: <Home size={20} /> },
   ];
 
@@ -29,9 +56,7 @@ const AdminSidebar = () => {
       <div className={`${isCollapsed ? "px-2" : "px-4"} py-4`}>
         <div className="flex items-center justify-between">
           {!isCollapsed && (
-            <div className="text-lg font-bold text-moto-red">
-              Admin
-            </div>
+            <div className="text-lg font-bold text-moto-red">Admin</div>
           )}
           <button
             onClick={toggleSidebar}
@@ -70,7 +95,9 @@ const AdminSidebar = () => {
         </nav>
       </div>
 
-      <div className={`border-t border-gray-200 p-4 ${isCollapsed ? "px-2" : ""}`}>
+      <div
+        className={`border-t border-gray-200 p-4 ${isCollapsed ? "px-2" : ""}`}
+      >
         <div className="flex items-center">
           <div className="flex-shrink-0">
             <div className="h-8 w-8 rounded-full bg-moto-red text-white flex items-center justify-center">
@@ -79,8 +106,12 @@ const AdminSidebar = () => {
           </div>
           {!isCollapsed && (
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900 truncate">{currentUser?.name}</p>
-              <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {currentUser?.name}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {currentUser?.email}
+              </p>
             </div>
           )}
         </div>
@@ -127,10 +158,10 @@ const AdminSidebar = () => {
 
       {/* Mobile trigger button */}
       {!isMobileOpen && mobileTrigger}
-      
+
       {/* Push main content to the right on desktop */}
       <div
-        className={`hidden md:block md:pl-64 transition-all duration-300 ${
+        className={`hidden md:block transition-all duration-300 ${
           isCollapsed ? "md:pl-16" : ""
         }`}
       />

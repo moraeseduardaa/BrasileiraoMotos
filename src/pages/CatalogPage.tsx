@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/select";
 import { Search, Filter, ShoppingCart } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom"; // Importa o hook de navegação
 
 // Tipo ajustado conforme sua tabela produtos
 interface ProductColor {
@@ -40,6 +47,7 @@ interface Product {
 const CatalogPage = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const navigate = useNavigate(); // Inicializa o hook de navegação
 
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -59,6 +67,7 @@ const CatalogPage = () => {
   const [selectedColors, setSelectedColors] = useState<
     Record<string, ProductColor | null>
   >({});
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null); // Estado para o produto selecionado
 
   useEffect(() => {
     async function fetchCategoriesAndModels() {
@@ -215,6 +224,14 @@ const CatalogPage = () => {
     }));
   };
 
+  const handleViewMore = (product: Product) => {
+    navigate(`/produto/${product.id}`); // Redireciona para a página do produto
+  };
+
+  const handleCloseModal = () => {
+    setSelectedProduct(null); // Fecha o modal
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Catálogo de Produtos</h1>
@@ -298,9 +315,11 @@ const CatalogPage = () => {
                 <div className="mb-4 overflow-hidden rounded-md">
                   <img
                     src={
-                      selectedColor?.image_url ??
-                      product.imagem_url ??
-                      "https://xdagqtknjynksqdzwery.supabase.co/storage/v1/object/sign/estoque-produtos/LogoBrasileirao.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2Q4NmI2ODkxLTJlNDktNDM2Zi1iMmM4LWRkMjM3ZmFlZmY4MCJ9.eyJ1cmwiOiJlc3RvcXVlLXByb2R1dG9zL0xvZ29CcmFzaWxlaXJhby5wbmciLCJpYXQiOjE3NDg4Mjc0MDksImV4cCI6MzE1NTMxNzI5MTQwOX0.CNAwWmCvviIVrZIpMoRBgIHYoK1hrWHITxq8vK4cl7A"
+                      selectedColor?.image_url
+                        ? selectedColor.image_url
+                        : product.imagem_url
+                        ? product.imagem_url
+                        : "https://via.placeholder.com/300x300?text=Sem+Imagem"
                     }
                     alt={product.nome}
                     className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
@@ -360,15 +379,28 @@ const CatalogPage = () => {
                     disabled={
                       selectedColor
                         ? selectedColor.stock === 0
-                        : product.estoque === 0
+                        : product.estoque === 0 // Verifica o estoque geral se não houver cor selecionada
                     }
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    {selectedColor && selectedColor.stock > 0
+                    {selectedColor
+                      ? selectedColor.stock > 0
+                        ? "Adicionar"
+                        : "Esgotado"
+                      : product.estoque > 0
                       ? "Adicionar"
-                      : "Esgotado"}
+                      : "Esgotado"}{" "}
+                    {/* Ajusta o texto conforme o estoque geral */}
                   </Button>
                 </div>
+                <Button
+                  onClick={() => handleViewMore(product)}
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                >
+                  Ver mais
+                </Button>
                 <div className="mt-3 text-sm text-gray-500">
                   <span
                     className={
@@ -378,7 +410,7 @@ const CatalogPage = () => {
                           : "text-red-600"
                         : product.estoque > 0
                         ? "text-green-600"
-                        : "text-red-600"
+                        : "text-red-600" // Verifica o estoque geral se não houver cor selecionada
                     }
                   >
                     {selectedColor
@@ -386,7 +418,7 @@ const CatalogPage = () => {
                         ? `Em estoque: ${selectedColor.stock}`
                         : "Esgotado"
                       : product.estoque > 0
-                      ? `Em estoque: ${product.estoque}`
+                      ? `Em estoque: ${product.estoque}` // Mostra o estoque geral
                       : "Esgotado"}
                   </span>
                 </div>
