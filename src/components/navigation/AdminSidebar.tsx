@@ -34,18 +34,23 @@ const AdminSidebar = () => {
       icon: <Package size={20} />,
     },
     {
-      name: "Gerenciar Modelos de Moto",
+      name: "Cadastrar Modelos de Moto",
       path: "/admin/modelos-moto",
       icon: <Package size={20} />,
     }, // Novo item
     {
-      name: "Gerenciar Categorias",
+      name: "Cadastrar Categorias",
       path: "/admin/categorias",
       icon: <Package size={20} />,
     }, // Novo item
     {
-      name: "Gerenciar Compatibilidade de Produtos",
+      name: "Cadastrar Compatibilidade",
       path: "/admin/compatibilidade-produtos",
+      icon: <Package size={20} />,
+    }, // Novo item
+    {
+      name: "Cadastrar Kits",
+      path: "/admin/kits",
       icon: <Package size={20} />,
     }, // Novo item
     { name: "Voltar ao Site", path: "/", icon: <Home size={20} /> },

@@ -12,12 +12,6 @@ import {
 } from "@/components/ui/select";
 import { Search, Filter, ShoppingCart } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom"; // Importa o hook de navegação
 
 // Tipo ajustado conforme sua tabela produtos
@@ -31,6 +25,15 @@ interface ProductColor {
   image_url?: string; // URL da imagem, pode ser nulo
 }
 
+interface Kit {
+  id: string;
+  nome: string;
+  descricao?: string;
+  desconto?: number; // Desconto em porcentagem
+  foto?: string; // URL da foto do kit
+  produtos?: Product[]; // Produtos associados ao kit
+}
+
 interface Product {
   id: string;
   nome: string;
@@ -42,6 +45,7 @@ interface Product {
   compatibilidade?: string[]; // array de motos compatíveis
   cores?: ProductColor[]; // Adiciona cores ao produto
   selectedColor?: ProductColor | null; // Cor selecionada
+  kits?: Kit[]; // Adiciona kits ao produto
 }
 
 const CatalogPage = () => {
@@ -117,51 +121,88 @@ const CatalogPage = () => {
     fetchCategoriesAndModels();
   }, [toast]);
 
-  // Busca produtos do banco ao montar componente
   useEffect(() => {
-    async function fetchProducts() {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("*, product_colors(*)"); // Inclui cores relacionadas
+    async function fetchProductsAndKits() {
+      try {
+        // Busca produtos do banco
+        const { data: productsData, error: productsError } =
+          await supabase.from("produtos").select(`
+          *,
+          categorias (nome),
+          product_colors(*)
+        `);
 
-      if (error) {
+        if (productsError) {
+          console.error("Erro ao carregar produtos:", productsError.message);
+          toast({
+            title: "Erro ao carregar produtos",
+            description: productsError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const processedProducts = productsData?.map((prod) => {
+          const cores = prod.product_colors || [];
+          const primeiraCorComEstoque =
+            cores.find((color) => color.stock > 0) || null;
+
+          return {
+            ...prod,
+            categoria: prod.categorias?.nome || "Sem categoria", // Usa o nome da categoria ou "Sem categoria"
+            compatibilidade:
+              typeof prod.compatibilidade === "string"
+                ? JSON.parse(prod.compatibilidade)
+                : prod.compatibilidade || [],
+            cores,
+            selectedColor: primeiraCorComEstoque,
+          };
+        }) as Product[];
+
+        // Busca kits do banco
+        const { data: kitsData, error: kitsError } = await supabase
+          .from("kits")
+          .select("*");
+
+        if (kitsError) {
+          console.error("Erro ao carregar kits:", kitsError.message);
+          toast({
+            title: "Erro ao carregar kits",
+            description: kitsError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const kitsAsProducts = kitsData?.map((kit) => ({
+          id: `kit-${kit.id}`, // Prefixa o ID do kit
+          nome: kit.nome,
+          descricao: kit.descricao,
+          preco: kit.desconto || 0, // Usa o desconto como preço (ajuste conforme necessário)
+          imagem_url: kit.foto,
+          categoria: "Kit",
+          estoque: 1, // Kits são tratados como sempre disponíveis
+          compatibilidade: [],
+          cores: [],
+          selectedColor: null,
+          kits: [], // Kits não possuem kits aninhados
+        })) as Product[];
+
+        const combinedProducts = [...processedProducts, ...kitsAsProducts];
+
+        setProducts(combinedProducts || []);
+        setFilteredProducts(combinedProducts || []);
+      } catch (error) {
+        console.error("Erro inesperado:", error);
         toast({
-          title: "Erro ao carregar produtos",
-          description: error.message,
+          title: "Erro inesperado",
+          description: "Não foi possível carregar os dados.",
           variant: "destructive",
         });
-        return;
       }
-
-      const processed = data?.map((prod) => {
-        const cores = prod.product_colors || [];
-        const primeiraCorComEstoque =
-          cores.find((color) => color.stock > 0) || null;
-
-        return {
-          ...prod,
-          compatibilidade:
-            typeof prod.compatibilidade === "string"
-              ? JSON.parse(prod.compatibilidade)
-              : prod.compatibilidade || [],
-          cores,
-          selectedColor: primeiraCorComEstoque, // Define a cor padrão com estoque
-        };
-      }) as Product[];
-
-      setProducts(processed || []);
-      setFilteredProducts(processed || []);
-
-      // Define cores selecionadas iniciais
-      setSelectedColors(
-        processed.reduce((acc, prod) => {
-          acc[prod.id] = prod.selectedColor;
-          return acc;
-        }, {} as Record<string, ProductColor | null>)
-      );
     }
 
-    fetchProducts();
+    fetchProductsAndKits();
   }, [toast]);
 
   // Filtra produtos conforme critérios
@@ -301,7 +342,7 @@ const CatalogPage = () => {
         </div>
       </div>
 
-      {/* Produtos */}
+      {/* Produtos e kits */}
       {filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
@@ -309,7 +350,7 @@ const CatalogPage = () => {
 
             return (
               <div
-                key={product.id}
+                key={product.id} // IDs agora são únicos
                 className="product-card group transition-all bg-white rounded-md shadow p-6 flex flex-col"
               >
                 <div className="mb-4 overflow-hidden rounded-md">
@@ -317,54 +358,58 @@ const CatalogPage = () => {
                     src={
                       selectedColor?.image_url
                         ? selectedColor.image_url
+                        : product.selectedColor?.image_url // Usa a imagem da primeira cor com estoque
+                        ? product.selectedColor.image_url
                         : product.imagem_url
                         ? product.imagem_url
-                        : "https://via.placeholder.com/300x300?text=Sem+Imagem"
+                        : "https://dummyimage.com/300x300/cccccc/000000&text=Imagem+Indisponível" // URL de fallback corrigido
                     }
                     alt={product.nome}
                     className="w-full h-[20rem] object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <span className="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded mb-2">
-                  {product.categoria}
+                  {product.categoria || "Sem categoria"}
                 </span>
                 <h3 className="font-medium text-lg mb-2">{product.nome}</h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                   {product.descricao || "-"}
                 </p>
-                <div className="mt-3">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Cores disponíveis:
-                  </h4>
-                  <div className="flex gap-2">
-                    {product.cores?.map((color) => (
-                      <div
-                        key={color.id}
-                        className={`w-6 h-6 rounded-full border cursor-pointer ${
-                          selectedColor?.id === color.id
-                            ? "ring-2 ring-moto-red"
-                            : ""
-                        }`}
-                        style={{
-                          backgroundColor: color.hex_code,
-                          borderColor: color.stock > 0 ? "#d1d5db" : "red",
-                        }}
-                        title={`${color.name} (${
-                          color.stock > 0 ? "Em estoque" : "Esgotado"
-                        })`}
-                        onClick={() => handleColorSelect(product.id, color)}
-                      ></div>
-                    ))}
+                {product.categoria !== "Kit" && (
+                  <div className="mt-3">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      Cores disponíveis:
+                    </h4>
+                    <div className="flex gap-2">
+                      {product.cores?.map((color) => (
+                        <div
+                          key={color.id}
+                          className={`w-6 h-6 rounded-full border cursor-pointer ${
+                            selectedColor?.id === color.id
+                              ? "ring-2 ring-moto-red"
+                              : ""
+                          }`}
+                          style={{
+                            backgroundColor: color.hex_code,
+                            borderColor: color.stock > 0 ? "#d1d5db" : "red",
+                          }}
+                          title={`${color.name} (${
+                            color.stock > 0 ? "Em estoque" : "Esgotado"
+                          })`}
+                          onClick={() => handleColorSelect(product.id, color)}
+                        ></div>
+                      ))}
+                    </div>
+                    {selectedColor && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Cor selecionada:{" "}
+                        <span className="text-gray-700">
+                          {selectedColor.name}
+                        </span>
+                      </p>
+                    )}
                   </div>
-                  {selectedColor && (
-                    <p className="mt-2 text-sm text-gray-500">
-                      Cor selecionada:{" "}
-                      <span className="text-gray-700">
-                        {selectedColor.name}
-                      </span>
-                    </p>
-                  )}
-                </div>
+                )}
                 <div className="flex justify-between items-center mt-auto">
                   <span className="text-xl font-bold text-moto-red">
                     {product.preco.toLocaleString("pt-BR", {
@@ -373,24 +418,30 @@ const CatalogPage = () => {
                     })}
                   </span>
                   <Button
-                    onClick={() => handleAddToCart(product, selectedColor)}
+                    onClick={
+                      () =>
+                        product.categoria === "Kit"
+                          ? handleViewMore(product) // Redireciona para a página de detalhes
+                          : handleAddToCart(product, selectedColor) // Adiciona ao carrinho
+                    }
                     size="sm"
                     className="btn-moto flex items-center"
                     disabled={
                       selectedColor
                         ? selectedColor.stock === 0
-                        : product.estoque === 0 // Verifica o estoque geral se não houver cor selecionada
+                        : product.estoque === 0
                     }
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    {selectedColor
+                    {product.categoria === "Kit"
+                      ? "Selecionar"
+                      : selectedColor
                       ? selectedColor.stock > 0
                         ? "Adicionar"
                         : "Esgotado"
                       : product.estoque > 0
                       ? "Adicionar"
-                      : "Esgotado"}{" "}
-                    {/* Ajusta o texto conforme o estoque geral */}
+                      : "Esgotado"}
                   </Button>
                 </div>
                 <Button
@@ -401,27 +452,6 @@ const CatalogPage = () => {
                 >
                   Ver mais
                 </Button>
-                <div className="mt-3 text-sm text-gray-500">
-                  <span
-                    className={
-                      selectedColor
-                        ? selectedColor.stock > 0
-                          ? "text-green-600"
-                          : "text-red-600"
-                        : product.estoque > 0
-                        ? "text-green-600"
-                        : "text-red-600" // Verifica o estoque geral se não houver cor selecionada
-                    }
-                  >
-                    {selectedColor
-                      ? selectedColor.stock > 0
-                        ? `Em estoque: ${selectedColor.stock}`
-                        : "Esgotado"
-                      : product.estoque > 0
-                      ? `Em estoque: ${product.estoque}` // Mostra o estoque geral
-                      : "Esgotado"}
-                  </span>
-                </div>
               </div>
             );
           })}

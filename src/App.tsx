@@ -35,6 +35,7 @@ import ProductDetailsPage from "@/pages/ProductDetailsPage";
 import MotorcycleManagePage from "@/pages/admin/MotorcycleManagePage";
 import CategoryManagePage from "@/pages/admin/CategoryManagePage";
 import ProductCompatibilityPage from "@/pages/admin/ProductCompatibilityPage";
+import KitsPage from "@/pages/admin/Kits"; // Importa a página de gerenciamento de kits
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,7 @@ const AppRoutes = () => {
           element={<ProductCompatibilityPage />}
         />{" "}
         {/* Nova rota */}
+        <Route path="kits" element={<KitsPage />} /> {/* Nova rota */}
       </Route>
 
       {/* Página 404 */}
