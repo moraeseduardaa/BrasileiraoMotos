@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -9,40 +9,46 @@ interface RequireAuthProps {
 }
 
 const RequireAuth = ({ children, requiredRole }: RequireAuthProps) => {
-  const { user } = useAuth();
+  const { user, isInitialized } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
 
-  const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
-    if (user !== undefined) {
-      setIsLoading(false);
-    }
-  }, [user]);
+    // Debug: Log para entender o que está acontecendo
+    console.log("RequireAuth Debug:", {
+      isInitialized,
+      user,
+      userRole: user?.user_metadata?.role,
+      requiredRole,
+      hasUser: !!user
+    });
 
-  useEffect(() => {
-    if (!isLoading && !user) {
+    if (isInitialized && !user) {
+      console.log("Usuário não encontrado - mostrando toast");
       toast({
         title: "Acesso negado",
         description: "Você precisa fazer login para acessar esta página",
         variant: "destructive",
       });
     } else if (
-      !isLoading &&
+      isInitialized &&
       user &&
       requiredRole &&
       user.user_metadata?.role !== requiredRole
     ) {
+      console.log("Role incorreto - mostrando toast", {
+        userRole: user.user_metadata?.role,
+        requiredRole
+      });
       toast({
         title: "Acesso negado",
-        description: "Você não tem permissão para acessar esta página",
+        description: "Você precisa de uma conta de cliente para fazer compras",
         variant: "destructive",
       });
     }
-  }, [user, isLoading, requiredRole, toast]);
+  }, [user, isInitialized, requiredRole, toast]);
 
-  if (isLoading) {
+  if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         Carregando...

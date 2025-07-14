@@ -51,6 +51,7 @@ const AppRoutes = () => {
         <Route path="catalogo" element={<CatalogPage />} />
         <Route path="produto/:id" element={<ProductDetailsPage />} />{" "}
         {/* Nova rota */}
+        <Route path="carrinho" element={<CartPage />} />
       </Route>
 
       {/* Rotas de autenticação */}
@@ -59,7 +60,7 @@ const AppRoutes = () => {
         <Route path="registro" element={<RegisterPage />} />
       </Route>
 
-      {/* Rotas de cliente */}
+      {/* Rotas de cliente protegidas */}
       <Route
         path="/cliente"
         element={
@@ -68,7 +69,6 @@ const AppRoutes = () => {
           </RequireAuth>
         }
       >
-        <Route path="carrinho" element={<CartPage />} />
         <Route path="checkout" element={<CheckoutPage />} />
         <Route path="pedido-finalizado" element={<OrderSuccessPage />} />
         <Route path="perfil" element={<ProfilePage />} />

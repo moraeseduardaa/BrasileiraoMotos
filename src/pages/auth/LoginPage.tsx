@@ -40,7 +40,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || sessionStorage.getItem('redirectAfterLogin') || "/";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -64,6 +64,9 @@ const LoginPage = () => {
         description: "Bem-vindo de volta à Brasileirão Motos 044.",
       });
 
+      // Limpar o redirecionamento do sessionStorage
+      sessionStorage.removeItem('redirectAfterLogin');
+      
       navigate(from, { replace: true });
     } catch (error) {
       console.error("Erro no login:", error);

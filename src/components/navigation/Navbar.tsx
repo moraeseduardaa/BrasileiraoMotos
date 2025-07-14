@@ -67,7 +67,7 @@ const Navbar = () => {
                     <Link to="/admin/dashboard">Painel Admin</Link>
                   </Button>
                 )}
-                <Link to="/cliente/carrinho" className="relative mr-4 p-2">
+                <Link to="/carrinho" className="relative mr-4 p-2">
                   <ShoppingCart className="h-6 w-6 text-gray-600" />
                   {totalItems > 0 && (
                     <span className="absolute -top-1 -right-1 bg-moto-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -135,16 +135,14 @@ const Navbar = () => {
 
           {/* Mobile menu button + carrinho */}
           <div className="flex md:hidden items-center">
-            {user && (
-              <Link to="/cliente/carrinho" className="relative mr-4 p-2">
-                <ShoppingCart className="h-6 w-6 text-gray-600" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-moto-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
-              </Link>
-            )}
+            <Link to="/carrinho" className="relative mr-4 p-2">
+              <ShoppingCart className="h-6 w-6 text-gray-600" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-moto-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
 
             <Button variant="ghost" onClick={toggleMenu}>
               {isMenuOpen ? (
@@ -182,6 +180,17 @@ const Navbar = () => {
               }
             >
               Catálogo
+            </NavLink>
+            <NavLink
+              to="/carrinho"
+              onClick={closeMenus}
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-moto-red text-white block px-3 py-2 rounded-md text-base font-medium"
+                  : "text-gray-700 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium"
+              }
+            >
+              Carrinho {totalItems > 0 && `(${totalItems})`}
             </NavLink>
           </nav>
 

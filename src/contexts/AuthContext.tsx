@@ -32,12 +32,14 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
+  isInitialized: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const login = async (email: string, password: string) => {
     const { data: authData, error: authError } =
@@ -51,14 +53,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const { data: usuario, error: usuarioError } = await supabase
-      .from<UserExtra>("usuarios")
+      .from("usuarios")
       .select("*")
       .eq("id", authData.user.id)
       .single();
 
     if (usuarioError || !usuario) {
+      console.error("Erro ao buscar dados do usuário:", usuarioError);
       throw new Error("Erro ao buscar dados do usuário");
     }
+
+    console.log("Dados do usuário carregados:", usuario);
 
     // Monta o objeto user com role no user_metadata para o controle de acesso
     const userWithRole: AuthUser = {
@@ -69,6 +74,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         nome_completo: usuario.nome_completo,
       },
     };
+
+    console.log("User com role montado:", userWithRole);
 
     setUser(userWithRole);
   };
@@ -81,16 +88,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = user?.user_metadata.role === "admin";
 
   useEffect(() => {
+    console.log("AuthContext: Inicializando...");
     // Recupera sessão atual
     supabase.auth.getSession().then(({ data }) => {
+      console.log("Sessão atual:", data.session);
       const sessionUser = data.session?.user;
       if (sessionUser) {
+        console.log("Usuário da sessão encontrado:", sessionUser.id);
         supabase
-          .from<UserExtra>("usuarios")
+          .from("usuarios")
           .select("*")
           .eq("id", sessionUser.id)
           .single()
-          .then(({ data: usuario }) => {
+          .then(({ data: usuario, error }) => {
+            console.log("Resultado da busca do usuário:", { usuario, error });
             if (usuario) {
               const userWithRole: AuthUser = {
                 id: sessionUser.id,
@@ -100,9 +111,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   nome_completo: usuario.nome_completo,
                 },
               };
+              console.log("Setando usuário:", userWithRole);
               setUser(userWithRole);
             }
+            setIsInitialized(true);
           });
+      } else {
+        console.log("Nenhuma sessão ativa encontrada");
+        setIsInitialized(true);
       }
     });
 
@@ -111,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (_event, session) => {
         if (session?.user) {
           supabase
-            .from<UserExtra>("usuarios")
+            .from("usuarios")
             .select("*")
             .eq("id", session.user.id)
             .single()
@@ -140,7 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, logout, isAdmin, isInitialized }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"; // Adicionado useEffect
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext"; // Adicionado useAuth
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +109,7 @@ const CartPage = () => {
     applyDiscount,
     addItem,
   } = useCart();
+  const { user, isInitialized } = useAuth(); // Adicionado isInitialized
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -327,6 +329,41 @@ const CartPage = () => {
 
   const handleGoToCheckout = () => {
     if (!validateCheckout()) return;
+    
+    // Aguardar inicialização do contexto de autenticação
+    if (!isInitialized) {
+      toast({
+        title: "Carregando",
+        description: "Aguarde um momento...",
+        variant: "default",
+      });
+      return;
+    }
+    
+    // Verificar se o usuário está autenticado antes de ir para o checkout
+    if (!user) {
+      toast({
+        title: "Login necessário",
+        description: "Faça login para finalizar sua compra com segurança",
+        variant: "default",
+      });
+      // Salvar a intenção de ir para checkout após login
+      sessionStorage.setItem('redirectAfterLogin', '/cliente/checkout');
+      navigate("/auth/login");
+      return;
+    }
+    
+    // Verificar se o usuário tem o role correto
+    if (user.user_metadata?.role !== "cliente") {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa de uma conta de cliente para fazer compras",
+        variant: "destructive",
+      });
+      navigate("/auth/login");
+      return;
+    }
+    
     navigate("/cliente/checkout");
   };
 
@@ -613,12 +650,21 @@ const CartPage = () => {
             </CardContent>
             <CardFooter>
               <Button
-                disabled={isCalculatingShipping || isApplyingDiscount}
+                disabled={isCalculatingShipping || isApplyingDiscount || !isInitialized}
                 className="w-full bg-moto-red hover:bg-red-700 text-white"
                 size="lg"
-                onClick={handleGoToCheckout}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleGoToCheckout();
+                }}
               >
-                Ir para Pagamento
+                {!isInitialized 
+                  ? "Carregando..." 
+                  : !user 
+                    ? "Fazer Login para Finalizar" 
+                    : "Ir para Pagamento"
+                }
               </Button>
             </CardFooter>
           </Card>
